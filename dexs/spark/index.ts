@@ -5,48 +5,40 @@ import fetch from "node-fetch";
 const url = 'https://app.sentio.xyz/api/v1/analytics/zhpv96/spark-processor/sql/execute';
 const apiKey = 'TLjw41s3DYbWALbwmvwLDM9vbVEDrD9BP';
 const data = {
-  "sqlQuery": {
-    "sql": "SELECT tradeVolume, timestamp FROM `TradeVolume_raw` ORDER BY `timestamp` DESC LIMIT 1"
-  }
+  sql: "SELECT SUM(tradeVolume) AS dailyTradeVolume FROM `TradeVolume_raw` LIMIT 10000;",
 };
 
-const fetchTradeVolume = () =>
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'api-key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((result) => {
-      const rows = result.result?.rows || [];
-
-      if (rows.length === 0) {
-        console.warn('No trade volume data available.');
-        return {
-          totalVolume: null,
-          timestamp: null,
-        };
-      }
-
-      const totalVolume = rows[0]?.tradeVolume;
-      const timestamp = rows[0]?.timestamp;
-
-      console.log('Trade Volume:', totalVolume);
-      console.log('Timestamp:', timestamp);
-
-      return {
-        totalVolume: totalVolume,
-        timestamp: timestamp,
-      };
+const fetchTradeVolume = async () => {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    console.log('API Response:', json);
+
+    const rows = json.result?.rows || [];
+    const dailyVolume = rows.length > 0 ? rows[0]?.dailyTradeVolume || 0 : 0;
+
+    console.log('Daily Volume:', dailyVolume);
+
+    return {
+      dailyVolume,
+    };
+  } catch (error) {
+    console.error('Error fetching daily volume:', error);
+    return { dailyVolume: 0 };
+  }
+};
 
 const adapters: SimpleAdapter = {
   version: 1,
@@ -57,5 +49,5 @@ const adapters: SimpleAdapter = {
     },
   },
 };
-
+  
 export default adapters;
